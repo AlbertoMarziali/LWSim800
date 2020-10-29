@@ -1,0 +1,35 @@
+#######################################
+# Syntax Coloring Map For LWSim800
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+LWSim800	KEYWORD1
+
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+
+# Public Variables (KEYWORD2)
+#######################################
+sms		KEYWORD2
+
+
+# Methods for SMS (KEYWORD2)
+#######################################
+SendSMS	KEYWORD2
+ReadSMS	KEYWORD2
+ForwardSMS	KEYWORD2
+ReadNewSMS	KEYWORD2
+ReadSMSByIndex	KEYWORD2
+DelSMSByIndex	KEYWORD2
+DelAllSMS	KEYWORD2
+
+
+# Methods for Module (KEYWORD2)
+#######################################
+Init	KEYWORD2 
