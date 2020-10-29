@@ -16,11 +16,11 @@ The main differences are:
 ## Features
 + Send SMS
 + Read SMS
-+ Delete 
++ Delete SMS
 
 ## Methods and functions
 
-Name|Return|Notes
+Name|Return|Info
 :-------|:-------:|:-----------------------------------------------:|
 Init(baud_rate)|None|Initialize the library, connect to the GSM Module and configure it
 SendSms(number,text)|true or false|Sends sms. Takes flashstrings as input ( F("text") )
@@ -32,10 +32,26 @@ DelSMSByIndex(index)|true or false|Deletes the sms specified by the index
 DelAllSMS()|true or false|Deletes all message in the SIM800 module.
 
 ## Data struct
-There's only one data struct used in this library and it's LWSim800.sms.
+There's only one data struct used in this library and it's LWSim800.sms:
 
-It contains a char array for sms content (message) and a char array for the sms sender (sender).
-When ReadSms or ReadNewSMS are called, they store the read sms inside this struct, which is accessible from the external. Check the examples for a better idea of how it works. It's pretty easy.
+```
+#define MESSAGE_MAX_LENGTH 260
+#define SENDER_MAX_LENGTH 15
+
+struct {
+		char message [MESSAGE_MAX_LENGTH];
+		char sender[SENDER_MAX_LENGTH];
+} sms;
+```
+
+When ReadSms or ReadNewSMS are called, they store the read sms data inside this struct, which is accessible from the external. 
+
+```
+Serial.println(sim800.sms.message);
+Serial.println(sim800.sms.sender);
+```
+
+Check the examples to get a better idea of how it works. It's pretty easy.
 
 __________________________________________________________________
 
