@@ -39,8 +39,8 @@ There's only one data struct used in this library and it's LWSim800.sms:
 #define SENDER_MAX_LENGTH 15
 
 struct {
-		char message [MESSAGE_MAX_LENGTH];
-		char sender[SENDER_MAX_LENGTH];
+	char message [MESSAGE_MAX_LENGTH];
+	char sender[SENDER_MAX_LENGTH];
 } sms;
 ```
 
