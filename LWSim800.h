@@ -43,7 +43,7 @@
 #define OK 11
 
 //This enables debugging mode, to disable it - set value to 0
-#define DEBUG 0 
+#define DEBUG 0
 
 //LW Sim800 Class 
 class LWSim800
@@ -67,8 +67,8 @@ class LWSim800
 			  "OK"};
 	   
 	// private functions
-	byte _readResponseStatus(uint16_t timeout);
-	bool _readResponseRaw(uint16_t timeout);
+	byte _readResponseStatus(uint16_t comm_timeout, uint16_t interchar_timeout);
+	bool _readResponseRaw(uint16_t comm_timeout, uint16_t interchar_timeout);
 
 	
 	public:

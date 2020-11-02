@@ -36,13 +36,13 @@ LWSim800::LWSim800() {}
 //
 
 // This reads and returns the response status
-byte LWSim800::_readResponseStatus(uint16_t timeout)
+byte LWSim800::_readResponseStatus(uint16_t comm_timeout, uint16_t interchar_timeout)
 {
 	// This function handles the response from the radio and returns a status response
-	uint8_t Status = 99; // the defualt stat and it means a timeout
+	uint8_t Status = 99; // the default stat and it means a timeout
 	 
 	//try to read data
-	if(_readResponseRaw(timeout))
+	if(_readResponseRaw(comm_timeout, interchar_timeout))
 	{
 		//read successful
 		/*
@@ -61,7 +61,9 @@ byte LWSim800::_readResponseStatus(uint16_t timeout)
 		* 
 		* 
 		*/
-		Serial.println(sms.message);
+		if(DEBUG)
+			Serial.println(sms.message);
+
 		for (byte i=0; i<_responseInfoSize; i++)
 		{
 			if((strstr(sms.message, _responseInfo[i])) != NULL)
@@ -76,49 +78,54 @@ byte LWSim800::_readResponseStatus(uint16_t timeout)
 }
  
 // This reads the raw response data and places it in sms.message
-bool LWSim800::_readResponseRaw(uint16_t timeout){
+bool LWSim800::_readResponseRaw(uint16_t comm_timeout, uint16_t interchar_timeout){
 	// this function just reads the raw data
 	unsigned long t = millis();
-	short num_of_bytes = 0;
-	short num_of_byte_read = 0;
+	short num_of_bytes_read = 0;
+	char c;
 
-	//try it until timeout
-	while(millis() - t < timeout)
+	//wait for the communication to start
+	while(!gsmSerial.available() && millis() - t < comm_timeout);
+
+	//return false if timed out
+	if(!gsmSerial.available())
+		return false;
+
+	//read data on gsmSerial
+	t = millis();
+	while(millis() - t < interchar_timeout)
 	{
-		//wait until we know the size of the data to read
-		if((num_of_bytes = gsmSerial.available()))
+		if(gsmSerial.available())
 		{
-			//read the data into the buffer
-			while(num_of_bytes)
+			//read data, avoiding overflow
+			if(num_of_bytes_read < MESSAGE_MAX_LENGTH)
 			{
-				num_of_bytes--;
-				//read data, avoiding overflow
-				if(num_of_byte_read < MESSAGE_MAX_LENGTH)
-				{
-					sms.message[num_of_byte_read] = gsmSerial.read();
-					if(DEBUG)
-						Serial.print(sms.message[num_of_byte_read]);
-					num_of_byte_read++;	
-					sms.message[num_of_byte_read] = 0x00; //string terminator
-				}
-				else
-				{
-					//we avoid overflowing but still need to empty the ingress buffer
-					gsmSerial.read();
-				}
+				sms.message[num_of_bytes_read] = (char) gsmSerial.read();
+				if(DEBUG)
+					Serial.print(sms.message[num_of_bytes_read]);
+				num_of_bytes_read++;	
+				sms.message[num_of_bytes_read] = 0x00; //string terminator
+			}
+			else
+			{
+				//we avoid overflowing but still need to empty the ingress buffer
+				c = gsmSerial.read();
 			}
 
-			if(DEBUG)
-				Serial.println();
-
-			return true;
+			//update interchar timing
+			t = millis();
 		}
-		else
-			delay(50); //give it time
 	}
 
-	//timeout out
-	return false;
+	if(DEBUG)
+			Serial.println();
+
+
+	//did it actually read?
+	if(num_of_bytes_read)
+		return true;
+	else
+		return false;
 }
 
  
@@ -131,7 +138,7 @@ void LWSim800::Init(long baud_rate) {
 	// begin software serial
 	gsmSerial.begin(baud_rate);	 	 
 	// this will flush the serial
-	byte result = _readResponseStatus(1000); 
+	byte result = _readResponseStatus(1000, 50); 
 
 	// check if the sim800L is actually attached
 	// sends a test AT command, if attached we should get an OK response
@@ -140,27 +147,27 @@ void LWSim800::Init(long baud_rate) {
 	{
 		Serial.println(F(" => Waiting for the GSM Module"));
 		gsmSerial.print(F("AT\r\n"));
-		result = _readResponseStatus(1000); // timeout of 1 secs
+		result = _readResponseStatus(10000, 50); // timeout of 1 secs
 		//if ok, proceed in setup
 		if (result == OK) 
-		{
+		{/*
 			//set up for sms mode
 			gsmSerial.print(F("AT+CSCS=\"GSM\"\r\n"));
-			result = _readResponseStatus(10000); // just to clear the buffer
+			result = _readResponseStatus(10000, 50); // just to clear the buffer
 			if(result == OK)
 			{
-				delay(100);
 				gsmSerial.print(F("AT+CMGF=1\r"));
-				result = _readResponseStatus(10000);
+				result = _readResponseStatus(10000, 50);
 				if(result == OK)
-				{
-					//delete  all sms in memory
-					DelAllSMS();		
-
+				{*/
 					//enable all functions
 					available = true; 	
+/*
+					//delete  all sms in memory
+					if(!DelAllSMS())
+						available = false;	
 				}
-			}
+			}*/
 		}
 	}
 
@@ -185,8 +192,9 @@ int LWSim800::GetNewSMSIndex() {
 
 		gsmSerial.print(F("AT+CMGL=\"ALL\",0"));
 		gsmSerial.print("\r");
-		if(_readResponseRaw(10000)) //reads the result	
+		if(_readResponseRaw(10000, 50)) //reads the result	
 		{
+			Serial.println(sms.message);
 			sms_p = strstr(sms.message, "+CMGL:");
 			if(sms_p != NULL)
 			{
@@ -224,20 +232,20 @@ bool LWSim800::SendSMS(const __FlashStringHelper *dest, const __FlashStringHelpe
 	{
 		byte result;
 		gsmSerial.print(F("AT+CMGF=1\r\n")); // set sms to text mode
-		result = _readResponseStatus(2000);
+		result = _readResponseStatus(2000, 50);
 		if(result == ERROR)
 			return false; // this just end the function here 
 		delay(100);
 		gsmSerial.print(F("AT+CMGS=\"")); // command to send sms
 		gsmSerial.print(dest);
 		gsmSerial.print(F("\"\r\n"));
-		result=_readResponseStatus(5000); // to clear buffer and see if successful
+		result=_readResponseStatus(5000, 50); // to clear buffer and see if successful
 		if(result == READY_TO_RECEIVE){
 			gsmSerial.print(text);
 			gsmSerial.print(F("\r"));
-			result=_readResponseStatus(2000);
+			result=_readResponseStatus(2000, 50);
 			gsmSerial.print((char)26);
-			result = _readResponseStatus(2000);
+			result = _readResponseStatus(2000, 50);
 			// if successfully sent we should get CMGS:xxx ending with OK
 			if(result == OK)
 				return true;
@@ -262,20 +270,20 @@ bool LWSim800::ForwardSMS(const __FlashStringHelper *dest) {
 	{
 		byte result;
 		gsmSerial.print(F("AT+CMGF=1\r\n")); // set sms to text mode
-		result = _readResponseStatus(10000);
+		result = _readResponseStatus(10000, 50);
 		if(result == ERROR)
 			return false; // this just end the function here 
 		delay(1000);
 		gsmSerial.print(F("AT+CMGS=\"")); // command to send sms
 		gsmSerial.print(dest);
 		gsmSerial.print(F("\"\r\n"));
-		result=_readResponseStatus(15000); // to clear buffer and see if successful
+		result=_readResponseStatus(15000, 50); // to clear buffer and see if successful
 		if(result == READY_TO_RECEIVE){
 			gsmSerial.print(sms.message);
 			gsmSerial.print("\r");
-			result=_readResponseStatus(1000);
+			result=_readResponseStatus(1000, 50);
 			gsmSerial.print((char)26);
-			result = _readResponseStatus(20000);
+			result = _readResponseStatus(20000, 50);
 			// if successfully sent we should get CMGS:xxx ending with OK
 			if(result == OK)
 				return true;
@@ -294,6 +302,8 @@ bool LWSim800::ReadNewSMS() {
 	{
 		//read first sms index
 		int newSMSIndex = GetNewSMSIndex();
+		Serial.print("new sms: ");
+		Serial.println(newSMSIndex);
 		if(newSMSIndex > 0) //new sms found, try to read it
 			if(ReadSMSByIndex(newSMSIndex)) // if was able to read it
 				DelSMSByIndex(newSMSIndex); // delete it
@@ -313,7 +323,7 @@ bool LWSim800::ReadSMSByIndex(uint8_t index) {
 	if(available)
 	{
 		gsmSerial.print(F("AT+CMGF=1\r"));
-		byte result = _readResponseStatus(10000);
+		byte result = _readResponseStatus(10000, 50);
 		if(result == OK)
 		{
 			gsmSerial.print(F("AT+CMGR="));
@@ -321,7 +331,7 @@ bool LWSim800::ReadSMSByIndex(uint8_t index) {
 			gsmSerial.print("\r");
 			
 			//reads message text and number of sender, return if timed out
-			if(!_readResponseRaw(10000)) 
+			if(!_readResponseRaw(10000, 50)) 
 				return false;
 
 			//if it read an sms
@@ -373,7 +383,7 @@ bool LWSim800::DelSMSByIndex(uint8_t index) {
 		gsmSerial.print(F("AT+CMGD="));
 		gsmSerial.print(index);
 		gsmSerial.print("\r");
-		result = _readResponseStatus(25000); // max time to wait is 25secs
+		result = _readResponseStatus(25000, 50); // max time to wait is 25secs
 		if(result == OK)
 			return true;
 		else
@@ -391,7 +401,7 @@ bool LWSim800::DelAllSMS() {
 	{
 		byte result;
 		gsmSerial.print(F("AT+CMGDA=\"DEL ALL\"\r\n")); // set sms to text mode
-		result = _readResponseStatus(25000); // max time to wait is 25secs
+		result = _readResponseStatus(25000, 50); // max time to wait is 25secs
 		if(result == OK)
 			return true;
 		else
