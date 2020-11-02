@@ -150,7 +150,7 @@ void LWSim800::Init(long baud_rate) {
 		result = _readResponseStatus(10000, 50); // timeout of 1 secs
 		//if ok, proceed in setup
 		if (result == OK) 
-		{/*
+		{
 			//set up for sms mode
 			gsmSerial.print(F("AT+CSCS=\"GSM\"\r\n"));
 			result = _readResponseStatus(10000, 50); // just to clear the buffer
@@ -159,15 +159,15 @@ void LWSim800::Init(long baud_rate) {
 				gsmSerial.print(F("AT+CMGF=1\r"));
 				result = _readResponseStatus(10000, 50);
 				if(result == OK)
-				{*/
+				{
 					//enable all functions
 					available = true; 	
-/*
+
 					//delete  all sms in memory
 					if(!DelAllSMS())
 						available = false;	
 				}
-			}*/
+			}
 		}
 	}
 
