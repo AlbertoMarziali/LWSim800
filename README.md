@@ -10,9 +10,12 @@ The main features of this library are:
 + Default RX and TX are 2 nd 3
 
 ## Features
-+ Send SMS
-+ Read SMS
-+ Delete SMS
++ Send an SMS
++ Forward the last received SMS
++ Check for new SMS
++ Read a single SMS
++ Delete a single SMS
++ Delete all SMS
 
 ## Methods and functions
 
