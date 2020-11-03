@@ -32,7 +32,7 @@ void setup()
   sim800.Init(4800); 
 
   //send the sms
-  sim800.SendSMS(F("+391234567890"), F("Hello!"));
+  sim800.SendSMS_P(F("+391234567890"), F("Hello!"));
 }
 
 

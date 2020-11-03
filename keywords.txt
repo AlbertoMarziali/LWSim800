@@ -22,6 +22,7 @@ sms		KEYWORD2
 # Methods for SMS (KEYWORD2)
 #######################################
 SendSMS	KEYWORD2
+SendSMS_P	KEYWORD2
 ReadSMS	KEYWORD2
 ForwardSMS	KEYWORD2
 ReadNewSMS	KEYWORD2

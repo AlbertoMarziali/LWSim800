@@ -26,21 +26,13 @@
 //RX and TX pins
 #define RX_PIN 2	
 #define TX_PIN 3
- 
-//States
-#define TIMEOUT 99
-#define ERROR 0
-#define NOT_READY 1
-#define READY 2
-#define CONNECT_OK 3
-#define CONNECT_FAIL 4
-#define ALREADY_CONNECT 5
-#define SEND_OK 6
-#define SEND_FAIL 7
-#define DATA_ACCEPT 8
-#define CLOSED 9
-#define READY_TO_RECEIVE 10 // basically SMSGOOD means >
-#define OK 11
+
+//Common "toFind" magics
+#define CHECK_FLUSH "FLUSH"
+#define CHECK_OK "OK"
+#define CHECK_READY_TO_RECEIVE ">"
+#define CHECK_CMGL "+CMGL:"
+#define CHECK_CMGR "+CMGR:"
 
 //This enables debugging mode, to disable it - set value to 0
 #define DEBUG 0
@@ -51,25 +43,10 @@ class LWSim800
 	private:
 	
 	bool available = false;
-	static const uint8_t _responseInfoSize = 12; 
-	const char* _responseInfo[_responseInfoSize] =
-			  {"ERROR",
-			  "NOT READY",
-			  "READY",
-			  "CONNECT OK",
-			  "CONNECT FAIL",
-			  "ALREADY CONNECT",
-			  "SEND OK",
-			  "SEND FAIL",
-			  "DATA ACCEPT",
-			  "CLOSED",
-			  ">",
-			  "OK"};
 	   
 	// private functions
-	byte _readResponseStatus(uint16_t comm_timeout, uint16_t interchar_timeout);
-	bool _readResponseRaw(uint16_t comm_timeout, uint16_t interchar_timeout);
-
+	int _checkResponse(uint16_t comm_timeout, uint16_t interchar_timeout, char* toFind);
+	bool _sendSMS(const __FlashStringHelper *dest, const __FlashStringHelper *textp, char* textc, bool p);
 	
 	public:
 	 
@@ -78,20 +55,24 @@ class LWSim800
 	 
 	//data used by LWSim800
 	#define MAX_INIT_RETRIES 3 //max retries for init
-	#define MESSAGE_MAX_LENGTH 260
-	#define SENDER_MAX_LENGTH 15
+	#define MESSAGE_MAX_LENGTH 160 //160 + 1 terminator
+	#define SENDER_MAX_LENGTH 15 //14 + 1 terminator
 	struct {
   		char message [MESSAGE_MAX_LENGTH];
   		char sender[SENDER_MAX_LENGTH];
 	} sms;
 
+	#define SMS_INDEX_MAX_LENGTH 4 //max 3 digit + 1 terminator
+	char smsIndex [4]; 
+
 	// public functions
 	void Init(long baud_rate);
 	int GetNewSMSIndex(); //gets the index of a new sms
-	bool SendSMS(const __FlashStringHelper *dest, const __FlashStringHelper *text); //send an sms
-	bool ForwardSMS(const __FlashStringHelper *dest); //forwards last read sms
 	bool ReadNewSMS(); //reads a new sms from memory
 	bool ReadSMSByIndex(uint8_t index); // reads an sms at a particular index
+	bool SendSMS_P(const __FlashStringHelper *dest, const __FlashStringHelper *text); //send an sms
+	bool SendSMS(const __FlashStringHelper *dest, char *text);
+	bool ForwardSMS(const __FlashStringHelper *dest); //forwards last read sms
 	bool DelSMSByIndex(uint8_t index); //delete sms by index
 	bool DelAllSMS(); // deletes all sms 
 	 
