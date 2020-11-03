@@ -45,7 +45,7 @@ class LWSim800
 	bool available = false;
 	   
 	// private functions
-	int _checkResponse(uint16_t comm_timeout, uint16_t interchar_timeout, char* toFind);
+	int _checkResponse(uint16_t comm_timeout, uint16_t interchar_timeout, const char* toFind);
 	bool _sendSMS(const __FlashStringHelper *dest, const __FlashStringHelper *textp, char* textc, bool p);
 	
 	public:
@@ -55,7 +55,7 @@ class LWSim800
 	 
 	//data used by LWSim800
 	#define MAX_INIT_RETRIES 3 //max retries for init
-	#define MESSAGE_MAX_LENGTH 160 //160 + 1 terminator
+	#define MESSAGE_MAX_LENGTH 161 //160 + 1 terminator
 	#define SENDER_MAX_LENGTH 15 //14 + 1 terminator
 	struct {
   		char message [MESSAGE_MAX_LENGTH];

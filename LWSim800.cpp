@@ -45,7 +45,7 @@ LWSim800::LWSim800() {}
 // -1 not found
 // 0 found and executed operation
 // 1..N found and operation res (in CMGL, N = new sms index)
-int LWSim800::_checkResponse(uint16_t comm_timeout, uint16_t interchar_timeout, char* toFind)
+int LWSim800::_checkResponse(uint16_t comm_timeout, uint16_t interchar_timeout, const char* toFind)
 {
 	// this function just reads the raw data
 	unsigned long t = millis();
@@ -168,7 +168,7 @@ int LWSim800::_checkResponse(uint16_t comm_timeout, uint16_t interchar_timeout, 
 					//read sms content until \n
 					else if(toFind_step == 4)
 					{
-						if(c != '\n' && num_of_bytes_read < MESSAGE_MAX_LENGTH - 1)
+						if(c != '\r' && num_of_bytes_read < MESSAGE_MAX_LENGTH - 1)
 						{
 							sms.message[num_of_bytes_read] = c;
 							num_of_bytes_read++;
