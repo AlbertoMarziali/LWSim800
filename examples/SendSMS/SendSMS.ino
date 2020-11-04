@@ -13,7 +13,7 @@
 * - removes every function apart SMS-related ones.
 * - almost every function has been rewritten from the ground up.
 *
-* Created on: Oct 29, 2010
+* Created on: Nov 03, 2020
 * Author: Alberto Marziali
 * Email: alberto.marziali.am@gmail.com
 * Version: v1.00
