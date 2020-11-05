@@ -54,7 +54,7 @@ class LWSim800
 	LWSim800();
 	 
 	//data used by LWSim800
-	#define MAX_INIT_RETRIES 3 //max retries for init
+	#define MAX_INIT_RETRIES 10 //max retries for init
 	#define MESSAGE_MAX_LENGTH 161 //160 + 1 terminator
 	#define SENDER_MAX_LENGTH 15 //14 + 1 terminator
 	struct {

@@ -274,6 +274,11 @@ void LWSim800::Init(long baud_rate) {
 				}
 			}
 		}
+
+		//if failed, delay of 1000 ms
+		if(!available)
+			delay(1000);
+			
 	}
 
 	//notify the result
