@@ -75,7 +75,7 @@ int LWSim800::_checkResponse(uint16_t comm_timeout, uint16_t interchar_timeout, 
 
 	//return false if timed out
 	if(!gsmSerial.available())
-		return false;
+		return -1;
 
 	//read data on gsmSerial
 	t = millis();
@@ -256,28 +256,24 @@ void LWSim800::Init(long baud_rate) {
 		
 		//check connection. if ok, proceed in setup
 		gsmSerial.println(F("AT"));
-		if (_checkResponse(10000, 50, CHECK_OK) == 0) 
+		if (_checkResponse(2000, 50, CHECK_OK) == 0) 
 		{
 			//set up for sms mode
 			gsmSerial.println(F("AT+CSCS=\"GSM\""));
-			if (_checkResponse(10000, 50, CHECK_OK) == 0) 
-			{
-				gsmSerial.println(F("AT+CMGF=1"));
-				if (_checkResponse(10000, 50, CHECK_OK) == 0) 
-				{
-					//enable all functions
-					available = true; 	
+			if (_checkResponse(2000, 50, CHECK_OK) != 0) 
+				Serial.println(F(" => [Warning] CSCS Setup Failed"));
 
-					//delete  all sms in memory
-					if(!DelAllSMS())
-						available = false;	
-				}
-			}
+			gsmSerial.println(F("AT+CMGF=1"));
+			if (_checkResponse(2000, 50, CHECK_OK) != 0) 
+				Serial.println(F(" => [Warning] CMGF Setup Failed"));
+			
+			//enable all functions
+			available = true; 	
+
+			//delete all sms in memory
+			if(!DelAllSMS())
+				Serial.println(F(" => [Warning] SIM Memory Cleanup Failed"));
 		}
-
-		//if failed, delay of 1000 ms
-		if(!available)
-			delay(1000);
 			
 	}
 
