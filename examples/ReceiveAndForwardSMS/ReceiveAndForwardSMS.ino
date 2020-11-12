@@ -23,6 +23,7 @@
 #include <LWSim800.h>
 
 LWSim800 sim800; 
+unsigned long last_sms_check;
 
 void setup() 
 {
@@ -35,16 +36,25 @@ void setup()
 
 void loop() 
 {
-  //if true, it also reads the new sms. If false, just skip
-  if (sim800.ReadNewSMS())
+  //avoid blocking the arduino too much by checking every 1000ms
+  if(millis() - last_sms_check > 1000)
   {
-    //lets read the sms
-    Serial.print(F("New sms received: "));
-    Serial.println(sim800.sms.message);
-    Serial.print(F("The sender is: "));
-    Serial.println(sim800.sms.sender);
+    //if true, it also reads the new sms. If false, just skip
+    if (sim800.ReadNewSMS())
+    {
+      //lets read the sms
+      Serial.print(F("New sms received: "));
+      Serial.println(sim800.sms.message);
+      Serial.print(F("The sender is: "));
+      Serial.println(sim800.sms.sender);
+  
+      //forward it
+      sim800.ForwardSMS(F("+391234567890"));
+    }
 
-    //forward it
-    sim800.ForwardSMS(F("+391234567890"));
+    //save last check time
+    last_sms_check = millis();
+
+    Serial.println("sas");
   }
 }
