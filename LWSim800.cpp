@@ -203,34 +203,28 @@ bool LWSim800::_sendSMS(const __FlashStringHelper *dest, const __FlashStringHelp
 	//only if sim800l available
 	if(available)
 	{
-		byte result;
-		gsmSerial.println(F("AT+CMGF=1")); // set sms to text mode
-		if (_checkResponse(2000, 50, CHECK_OK) == 0) 
-		{
-			delay(100);
-			gsmSerial.print(F("AT+CMGS=\"")); // command to send sms
-			gsmSerial.print(dest);
-			gsmSerial.println(F("\""));
-			if (_checkResponse(15000, 50, CHECK_READY_TO_RECEIVE) == 0) 
-			{	
-				//select progmemchar or char
-				if(p) 
-					gsmSerial.println(textp); 
-				else 
-					gsmSerial.println(textc);
+		gsmSerial.print(F("AT+CMGS=\"")); // command to send sms
+		gsmSerial.print(dest);
+		gsmSerial.println(F("\""));
+		if (_checkResponse(15000, 50, CHECK_READY_TO_RECEIVE) == 0) 
+		{	
+			//select progmemchar or char
+			if(p) 
+				gsmSerial.println(textp); 
+			else 
+				gsmSerial.println(textc);
 
-				_checkResponse(2000, 50, CHECK_FLUSH); //flush
+			_checkResponse(2000, 50, CHECK_FLUSH); //flush
 
-				gsmSerial.print((char)26);
-				// if successfully sent we should get CMGS:xxx ending with OK
-				if(_checkResponse(20000, 50, CHECK_OK) == 0)
-					return true;
-				else
-					return false;
-			}
+			gsmSerial.print((char)26);
+			// if successfully sent we should get CMGS:xxx ending with OK
+			if(_checkResponse(20000, 50, CHECK_OK) == 0)
+				return true;
+			else
+				return false;
 		}
 		else 
-			return false;
+			return false; //no answer
 	}
 	else
 		return false; //sim800l not available
@@ -258,21 +252,42 @@ void LWSim800::Init(long baud_rate) {
 		gsmSerial.println(F("AT"));
 		if (_checkResponse(2000, 50, CHECK_OK) == 0) 
 		{
-			//set up for sms mode
-			gsmSerial.println(F("AT+CSCS=\"GSM\""));
-			if (_checkResponse(2000, 50, CHECK_OK) != 0) 
-				Serial.println(F(" => [Warning] CSCS Setup Failed"));
+			// Reset to the factory settings
+			gsmSerial.println(F("AT&F"));
+			if (_checkResponse(1000, 50, CHECK_OK) != 0) 
+				Serial.println(F(" => [Warning] Factory reset failed"));
 
+			// Switch off echo
+			gsmSerial.println(F("ATE0"));
+			if (_checkResponse(500, 50, CHECK_OK) != 0) 
+				Serial.println(F(" => [Warning] Turn echo off failed"));
+
+			// Mobile Equipment Error Code
+			gsmSerial.println(F("AT+CMEE=0"));
+			if (_checkResponse(500, 50, CHECK_OK) != 0) 
+				Serial.println(F(" => [Warning] Error code configuration failed"));
+
+			// Set the SMS mode to text 
 			gsmSerial.println(F("AT+CMGF=1"));
-			if (_checkResponse(2000, 50, CHECK_OK) != 0) 
-				Serial.println(F(" => [Warning] CMGF Setup Failed"));
+			if (_checkResponse(500, 50, CHECK_OK) != 0) 
+				Serial.println(F(" => [Warning] SMS text mode setup failed"));
+			 
+			// Disable messages about new SMS from GSM module
+			gsmSerial.println(F("AT+CNMI=2,0"));
+			if (_checkResponse(1000, 50, CHECK_OK) != 0) 
+				Serial.println(F(" => [Warning] SMS notification disable failed"));
 			
+			// Init sms memory
+			gsmSerial.println(F("AT+CPMS=\"SM\",\"SM\",\"SM\""));
+			if (_checkResponse(1000, 50, CHECK_CPMS) != 0) 
+				Serial.println(F(" => [Warning] SMS Memory init failed"));
+	
 			//enable all functions
 			available = true; 	
 
 			//delete all sms in memory
 			if(!DelAllSMS())
-				Serial.println(F(" => [Warning] SIM Memory Cleanup Failed"));
+				Serial.println(F(" => [Warning] SMS Memory Cleanup Failed"));
 		}
 			
 	}
@@ -327,19 +342,13 @@ bool LWSim800::ReadSMSByIndex(uint8_t index) {
 	if(available)
 	{
 		//set sms text mode
-		gsmSerial.println(F("AT+CMGF=1"));
-		if(_checkResponse(10000, 50, CHECK_OK) == 0)
-		{
-			gsmSerial.print(F("AT+CMGR="));
-			gsmSerial.println(index);			
-			//reads message text and number of sender, return if error
-			if(_checkResponse(10000, 50, CHECK_CMGR) == 0)
-				return true;
-			else
-				return false;
-		}
+		gsmSerial.print(F("AT+CMGR="));
+		gsmSerial.println(index);			
+		//reads message text and number of sender, return if error
+		if(_checkResponse(10000, 50, CHECK_CMGR) == 0)
+			return true;
 		else
-			return false;
+			return false; //no answer
 	}
 	else
 		return false; //sim800l not available
