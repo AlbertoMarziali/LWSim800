@@ -48,6 +48,7 @@ class LWSim800
 	// private functions
 	int _checkResponse(uint16_t comm_timeout, uint16_t interchar_timeout, const char* toFind);
 	bool _sendSMS(char *dest, const __FlashStringHelper *textp, char* textc, bool p);
+	void _serialPrint(const __FlashStringHelper *text);
 	
 	public:
 	 

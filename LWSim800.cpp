@@ -229,6 +229,12 @@ bool LWSim800::_sendSMS(char *dest, const __FlashStringHelper *textp, char* text
 	else
 		return false; //sim800l not available
 }
+
+void LWSim800::_serialPrint(const __FlashStringHelper *text)
+{
+	Serial.print(F("[LWSim800] "));
+	Serial.println(text);
+}
  
 // 
 // PUBLIC METHODS
@@ -239,64 +245,67 @@ void LWSim800::Init(long baud_rate) {
 	// begin software serial
 	gsmSerial.begin(baud_rate);	 	 
 	// this will flush the serial
-	_checkResponse(1000, 50, CHECK_FLUSH); 
+	_checkResponse(1000, 1000, CHECK_FLUSH); 
 
 	// check if the sim800L is actually attached
 	// sends a test AT command, if attached we should get an OK response
 	// if attached we should get an OK response
 	while(retries++ < MAX_INIT_RETRIES && !available)
 	{
-		Serial.println(F(" => Waiting for the GSM Module"));
+		_serialPrint(F("Waiting for the GSM Module"));
 		
 		//check connection. if ok, proceed in setup
 		gsmSerial.println(F("AT"));
 		if (_checkResponse(2000, 50, CHECK_OK) == 0) 
 		{
+			//Flush again
+			_checkResponse(5000, 5000, CHECK_FLUSH); 
+
 			// Reset to the factory settings
 			gsmSerial.println(F("AT&F"));
 			if (_checkResponse(1000, 50, CHECK_OK) != 0) 
-				Serial.println(F(" => [Warning] Factory reset failed"));
+				_serialPrint(F("[Warning] Factory reset failed"));
 
 			// Switch off echo
 			gsmSerial.println(F("ATE0"));
 			if (_checkResponse(500, 50, CHECK_OK) != 0) 
-				Serial.println(F(" => [Warning] Turn echo off failed"));
+				_serialPrint(F("[Warning] Turn echo off failed"));
 
 			// Mobile Equipment Error Code
 			gsmSerial.println(F("AT+CMEE=0"));
 			if (_checkResponse(500, 50, CHECK_OK) != 0) 
-				Serial.println(F(" => [Warning] Error code configuration failed"));
+				_serialPrint(F("[Warning] Error code configuration failed"));
 
 			// Set the SMS mode to text 
 			gsmSerial.println(F("AT+CMGF=1"));
 			if (_checkResponse(500, 50, CHECK_OK) != 0) 
-				Serial.println(F(" => [Warning] SMS text mode setup failed"));
+				_serialPrint(F("[Warning] SMS text mode setup failed"));
 			 
 			// Disable messages about new SMS from GSM module
 			gsmSerial.println(F("AT+CNMI=2,0"));
 			if (_checkResponse(1000, 50, CHECK_OK) != 0) 
-				Serial.println(F(" => [Warning] SMS notification disable failed"));
+				_serialPrint(F("[Warning] SMS notification disable failed"));
 			
 			// Init sms memory
 			gsmSerial.println(F("AT+CPMS=\"SM\",\"SM\",\"SM\""));
 			if (_checkResponse(1000, 50, CHECK_CPMS) != 0) 
-				Serial.println(F(" => [Warning] SMS Memory init failed"));
+				_serialPrint(F("[Warning] SMS Memory init failed"));
 	
 			//enable all functions
 			available = true; 	
 
 			//delete all sms in memory
 			if(!DelAllSMS())
-				Serial.println(F(" => [Warning] SMS Memory Cleanup Failed"));
+				_serialPrint(F("[Warning] SMS Memory Cleanup Failed"));
 		}
 			
 	}
 
 	//notify the result
 	if(available)
-		Serial.println(F(" => GSM Module Ready"));
+		_serialPrint(F("GSM Module Ready"));
 	else
-		Serial.println(F(" => GSM Module not available"));
+		_serialPrint(F("GSM Module not available"));
 	
 }
 

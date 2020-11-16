@@ -22,6 +22,8 @@
 
 #include <LWSim800.h>
 
+#define PHONE_NUMBER "+391234567890"
+
 LWSim800 sim800; 
 unsigned long last_sms_check;
 
@@ -49,12 +51,10 @@ void loop()
       Serial.println(sim800.sms.sender);
   
       //forward it
-      sim800.ForwardSMS(F("+391234567890"));
+      sim800.ForwardSMS(PHONE_NUMBER);
     }
 
     //save last check time
     last_sms_check = millis();
-
-    Serial.println("sas");
   }
 }
