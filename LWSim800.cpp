@@ -192,7 +192,7 @@ int LWSim800::_checkResponse(uint16_t comm_timeout, uint16_t interchar_timeout, 
 	return toFind_return;
 }
 
-bool LWSim800::_sendSMS(const __FlashStringHelper *dest, const __FlashStringHelper *textp, char* textc, bool p)
+bool LWSim800::_sendSMS(char *dest, const __FlashStringHelper *textp, char* textc, bool p)
 {
 	/* First send out AT+CMGF=1 - activate text mode
 	* The AT+CMGS=\number\
@@ -356,17 +356,17 @@ bool LWSim800::ReadSMSByIndex(uint8_t index) {
 
 
 // This sends an sms. Only works with F() text
-bool LWSim800::SendSMS_P(const __FlashStringHelper *dest, const __FlashStringHelper *text) {
+bool LWSim800::SendSMS_P(char *dest, const __FlashStringHelper *text) {
 	return _sendSMS(dest, text, NULL, true);
 }
 
 // This sends an sms. Only works with char* text
-bool LWSim800::SendSMS(const __FlashStringHelper *dest, char *text) {
+bool LWSim800::SendSMS(char *dest, char *text) {
 	return _sendSMS(dest, NULL, text, false);
 }
 
 // This forwards the last sms read to the defined destination
-bool LWSim800::ForwardSMS(const __FlashStringHelper *dest) {
+bool LWSim800::ForwardSMS(char *dest) {
 	return _sendSMS(dest, NULL, sms.message, false);
 }
 
