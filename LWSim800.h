@@ -69,7 +69,7 @@ class LWSim800
 
 	// public functions
 	void Init(long baud_rate);
-	
+
 	int GetNewSMSIndex(); //gets the index of a new sms
 	bool ReadNewSMS(); //reads a new sms from memory
 	bool ReadSMSByIndex(uint8_t index); // reads an sms at a particular index
@@ -78,8 +78,9 @@ class LWSim800
 	bool SendSMS(char *dest, char *text); // This sends an sms. char* dest and char* text 
 	bool SendSMS(const __FlashStringHelper *dest, char *text); // This sends an sms. F() dest and char* text
 	bool SendSMS(const __FlashStringHelper *dest, const __FlashStringHelper *text); // This sends an sms. F() dest and F() text
-	bool ForwardSMS(char *dest); //forwards last read sms
-	
+	bool ForwardSMS(char *dest); //forwards last read sms, char* dest
+	bool ForwardSMS(const __FlashStringHelper *dest); //forwards last read sms, F() dest
+
 	bool DelSMSByIndex(uint8_t index); //delete sms by index
 	bool DelAllSMS(); // deletes all sms 
 	 

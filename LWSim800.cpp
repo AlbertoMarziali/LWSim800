@@ -389,9 +389,14 @@ bool LWSim800::SendSMS(const __FlashStringHelper *dest, const __FlashStringHelpe
 	return _sendSMS(dest, NULL, text, NULL);
 }
 
-// This forwards the last sms read to the defined destination
+// This forwards the last sms read to the defined char* destination
 bool LWSim800::ForwardSMS(char *dest) {
 	return _sendSMS(NULL, dest, NULL, sms.message);
+}
+
+// This forwards the last sms read to the defined F() destination
+bool LWSim800::ForwardSMS(const __FlashStringHelper *dest) {
+	return _sendSMS(dest, NULL, NULL, sms.message);
 }
 
 // This deletes the sms specified by the index
