@@ -47,7 +47,7 @@ class LWSim800
 	   
 	// private functions
 	int _checkResponse(uint16_t comm_timeout, uint16_t interchar_timeout, const char* toFind);
-	bool _sendSMS(char *dest, const __FlashStringHelper *textp, char* textc, bool p);
+	bool _sendSMS(const __FlashStringHelper *destp, char *destc, const __FlashStringHelper *textp, char* textc);
 	void _serialPrint(const __FlashStringHelper *text);
 	
 	public:
@@ -69,12 +69,17 @@ class LWSim800
 
 	// public functions
 	void Init(long baud_rate);
+	
 	int GetNewSMSIndex(); //gets the index of a new sms
 	bool ReadNewSMS(); //reads a new sms from memory
 	bool ReadSMSByIndex(uint8_t index); // reads an sms at a particular index
-	bool SendSMS_P(char *dest, const __FlashStringHelper *text); //send an sms
-	bool SendSMS(char *dest, char *text);
+	
+	bool SendSMS(char *dest, const __FlashStringHelper *text); // This sends an sms. char* dest and F() text 
+	bool SendSMS(char *dest, char *text); // This sends an sms. char* dest and char* text 
+	bool SendSMS(const __FlashStringHelper *dest, char *text); // This sends an sms. F() dest and char* text
+	bool SendSMS(const __FlashStringHelper *dest, const __FlashStringHelper *text); // This sends an sms. F() dest and F() text
 	bool ForwardSMS(char *dest); //forwards last read sms
+	
 	bool DelSMSByIndex(uint8_t index); //delete sms by index
 	bool DelAllSMS(); // deletes all sms 
 	 
