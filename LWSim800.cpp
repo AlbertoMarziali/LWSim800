@@ -206,9 +206,9 @@ bool LWSim800::_sendSMS(const __FlashStringHelper *destp, char *destc, const __F
 		gsmSerial.print(F("AT+CMGS=\"")); // command to send sms
 		//select progmemchar or char dest
 		if(destp != NULL) 
-			gsmSerial.println(destp); 
+			gsmSerial.print(destp); 
 		else 
-			gsmSerial.println(destc);
+			gsmSerial.print(destc);
 
 		gsmSerial.println(F("\""));
 		if (_checkResponse(15000, 50, CHECK_READY_TO_RECEIVE) == 0) 
