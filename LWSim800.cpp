@@ -271,6 +271,11 @@ void LWSim800::Init(long baud_rate) {
 			if (_checkResponse(1000, 50, CHECK_OK) != 0) 
 				_serialPrint(F("[Warning] Factory reset failed"));
 
+			// CSCS
+			gsmSerial.println(F("AT+CSCS=\"GSM\""));
+			if (_checkResponse(500, 50, CHECK_OK) != 0) 
+				_serialPrint(F("[Warning] CSCSfailed"));
+
 			// Switch off echo
 			gsmSerial.println(F("ATE0"));
 			if (_checkResponse(500, 50, CHECK_OK) != 0) 
