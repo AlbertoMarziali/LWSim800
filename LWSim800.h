@@ -69,6 +69,7 @@ class LWSim800
 
 	// public functions
 	void Init(long baud_rate);
+	bool Reconnect();
 
 	int GetNewSMSIndex(); //gets the index of a new sms
 	bool ReadNewSMS(); //reads a new sms from memory

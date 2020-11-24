@@ -319,6 +319,29 @@ void LWSim800::Init(long baud_rate) {
 	
 }
 
+// This forces the reconnection to the network
+bool LWSim800::Reconnect() {
+	//only if sim800l available
+	if(available)
+	{
+		gsmSerial.println(F("AT+CFUN=0")); // set airplane mode
+		// max time to wait is 5secs
+		if(_checkResponse(5000, 50, CHECK_OK) == 0)	
+		{
+			gsmSerial.println(F("AT+CFUN=1")); // set normal mode
+			// max time to wait is 15secs, long interchar
+			if(_checkResponse(15000, 5000, CHECK_OK) == 0)	
+				return true;
+			else 
+				return false;
+		}
+		else
+			return false;
+	}
+	else
+		return false; //sim800l not available
+}
+
 // This gets the index of the first sms in memory
 int LWSim800::GetNewSMSIndex() {
 	// this function checks the message for the first message index.

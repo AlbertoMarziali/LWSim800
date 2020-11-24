@@ -22,7 +22,6 @@ sms		KEYWORD2
 # Methods for SMS (KEYWORD2)
 #######################################
 SendSMS	KEYWORD2
-SendSMS_P	KEYWORD2
 ReadSMS	KEYWORD2
 ForwardSMS	KEYWORD2
 ReadNewSMS	KEYWORD2
@@ -34,3 +33,4 @@ DelAllSMS	KEYWORD2
 # Methods for Module (KEYWORD2)
 #######################################
 Init	KEYWORD2 
+Reconnect	KEYWORD2 
