@@ -34,6 +34,7 @@
 #define CHECK_CMGL "+CMGL:"
 #define CHECK_CMGR "+CMGR:"
 #define CHECK_CPMS "+CPMS:"
+#define CHECK_CALL_READY "Call Ready"
 
 //This enables debugging mode, to disable it - set value to 0
 #define DEBUG 0

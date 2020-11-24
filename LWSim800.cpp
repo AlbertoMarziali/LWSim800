@@ -330,7 +330,7 @@ bool LWSim800::Reconnect() {
 		{
 			gsmSerial.println(F("AT+CFUN=1")); // set normal mode
 			// max time to wait is 15secs, long interchar
-			if(_checkResponse(15000, 5000, CHECK_OK) == 0)	
+			if(_checkResponse(15000, 5000, CHECK_CALL_READY) == 0)	
 				return true;
 			else 
 				return false;
