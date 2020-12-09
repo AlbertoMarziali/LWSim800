@@ -33,4 +33,4 @@ DelAllSMS	KEYWORD2
 # Methods for Module (KEYWORD2)
 #######################################
 Init	KEYWORD2 
-Reconnect	KEYWORD2 
+Reset	KEYWORD2 

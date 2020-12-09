@@ -45,30 +45,12 @@ LWSim800::LWSim800() {}
 // -1 not found
 // 0 found and executed operation
 // 1..N found and operation res (in CMGL, N = new sms index)
-int LWSim800::_checkResponse(uint16_t comm_timeout, uint16_t interchar_timeout, const char* toFind)
+long LWSim800::_checkResponse(uint16_t comm_timeout, uint16_t interchar_timeout, const char* magic)
 {
 	// this function just reads the raw data
 	unsigned long t = millis();
-	short num_of_bytes_read = 0;
 	char c;
-
-	int toFind_size = strlen(toFind);
-	int toFind_state = 0; 
-	// STATES:
-	//0 - initial search, 
-	//1 - elaboration, 
-	//2 - res ready, just flush the serial
-	int toFind_return = -1;
-	int toFind_index = 0;
-	int toFind_step = 0;
-
-
-	//set find mode
-	int toFind_mode = 0; //default
-	if(!strcmp(toFind, CHECK_CMGL))
-		toFind_mode = 1;
-	else if(!strcmp(toFind, CHECK_CMGR))
-		toFind_mode = 2;
+	long checkResponse_ret;
 
 	//wait for the communication to start
 	while(!gsmSerial.available() && millis() - t < comm_timeout);
@@ -77,124 +59,240 @@ int LWSim800::_checkResponse(uint16_t comm_timeout, uint16_t interchar_timeout, 
 	if(!gsmSerial.available())
 		return -1;
 
-	//read data on gsmSerial
-	t = millis();
+	//check for magic
+	if(_findLabel(magic, interchar_timeout))
+	{
+		//magic found
+		//elaborate and return
+		if(!strcmp(magic, CHECK_CMGL))
+		{
+			// CMGL MODE
+			// +CMGL: 1,"REC_.....
+
+			//fetch the sms index field
+			char tmp [4]; //3 digit + \0
+			if(_fetchField(tmp, 4, ' ', ',', interchar_timeout))
+				checkResponse_ret = atoi(tmp);
+			else
+				checkResponse_ret = -1; //field not found
+
+		}
+		else if(!strcmp(magic, CHECK_CMGR))
+		{
+			// CMGR MODE
+			// +CMGR: "REC_READ","+001234567890","","20/10/31,19:18:38+04"<LF>text\r
+
+			//fetch sms status field
+			if(_fetchField(NULL, 0, '"', '"', interchar_timeout))
+			{
+				//fetch sms sender field
+				if(_fetchField(sms.sender, SENDER_MAX_LENGTH, '"', '"', interchar_timeout))
+				{
+					//fetch sms sender name field
+					if(_fetchField(NULL, 0, '"', '"', interchar_timeout))
+					{
+						//fetch the sms date time
+						char tmp [21];
+						if(_fetchField(tmp, 21, '"', '"', interchar_timeout))
+						{
+							sms.dateTime = _stringToUTC(tmp);
+
+							//fetch the sms text field
+							if(_fetchField(sms.message, MESSAGE_MAX_LENGTH, 0x0a, '\r', interchar_timeout))
+								checkResponse_ret = 0; //sms ready
+							else
+								checkResponse_ret = -1; //field not found
+						}
+						else 
+							checkResponse_ret = -1; //field not found
+					}
+					else
+						checkResponse_ret = -1; //field not found
+				}
+				else
+					checkResponse_ret = -1; //field not found
+			}
+			else
+				checkResponse_ret = -1; //field not found
+
+		}
+		else if(!strcmp(magic, CHECK_CCLK))
+		{
+			// CCLK MODE
+			// +CCLK: "04/01/01,00:00:41+00"
+
+			char tmp [21];
+			if(_fetchField(tmp, 21, '"', '"', interchar_timeout))
+				checkResponse_ret = _stringToUTC(tmp); //field found, date read
+			else
+				checkResponse_ret = -1; //field not found
+
+		}
+		else 
+		{
+			//SIMPLE MODE
+			//magic found, no elaborating needed
+			checkResponse_ret = 0;
+		}
+		
+		//flush until the buffer is empty
+		_findLabel(CHECK_FLUSH, interchar_timeout);
+
+		//return
+		return checkResponse_ret; 
+	}
+	else 
+		return -1; //magic not found
+}
+
+bool LWSim800::_findLabel(const char *label, uint16_t interchar_timeout)
+{
+	unsigned long t = millis();
+	int label_size = strlen(label);
+	int label_i = 0;
+	char c;
+
+	//loop until timeout (or anticipated return)
 	while(millis() - t < interchar_timeout)
 	{
 		//as soon as there's data available
 		if(gsmSerial.available())
 		{
-			//read the char from serial
 			c = (char) gsmSerial.read();
 
-			if(DEBUG)
-				Serial.print(c);
-
-			//search the tofind
-			if(toFind_state == 0) // - initial search, not found yet
+			if(label[label_i] == c)
 			{
-				if(toFind[toFind_index] == c)
-				{
-					if(toFind_index < toFind_size - 1)
-						toFind_index++;
-					else
-						toFind_state = 1;
-				}
+				if(label_i < label_size - 1) //matching char, go ahead
+					label_i++;
 				else
-					toFind_index = 0;
+					return true; //return true if magic found
 			}
-			//tofind is found, do more elaboration if needed
-			else if(toFind_state == 1) // - elaboration
-			{
-				//specific mode 1 and 2 features:
+			else
+				label_i = 0; //mismatch, restart the search
 
-				//just needed to find the string
-				if(toFind_mode == 0)
-				{
-					toFind_state = 2; //done elaborating
-					toFind_return = 0; //res ready
-				}
-				//read new sms index
-				else if(toFind_mode == 1)
-				{
-					if(c != ',' && num_of_bytes_read < SMS_INDEX_MAX_LENGTH - 1) //max 3 digit + 1 terminator
-					{
-						smsIndex[num_of_bytes_read] = c;
-						num_of_bytes_read++;
-						smsIndex[num_of_bytes_read] = 0x00;
-					}
-					else
-					{
-						toFind_state = 2; //done elaborating
-						toFind_return = atoi(smsIndex); //res ready
-					}
-				}
-				//read sms content into sms struct
-				else if(toFind_mode == 2)
-				{
-					//we start with the number
-					//find the beginning of the number
-					if(toFind_step == 0) 
-					{
-						if(c == ',') //if found, go to next step
-							toFind_step = 1; 
-					}
-					//skip one char
-					else if(toFind_step == 1)
-					{
-						toFind_step = 2;
-					}
-					//read number until max or "
-					else if(toFind_step == 2)
-					{
-						if(c != '"' && num_of_bytes_read < SENDER_MAX_LENGTH - 1)
-						{
-							sms.sender[num_of_bytes_read] = c;
-							num_of_bytes_read++;
-							sms.sender[num_of_bytes_read] = 0x00;
-						}
-						else
-						{
-							num_of_bytes_read = 0; //reset
-							toFind_step = 3;
-						}
-					}
-					//find 0x0a (<LF>)
-					else if(toFind_step == 3)
-					{
-						if(c == 0x0a)
-							toFind_step = 4;
-					}
-					//read sms content until \n
-					else if(toFind_step == 4)
-					{
-						if(c != '\r' && num_of_bytes_read < MESSAGE_MAX_LENGTH - 1)
-						{
-							sms.message[num_of_bytes_read] = c;
-							num_of_bytes_read++;
-							sms.message[num_of_bytes_read] = 0x00;
-						}
-						else
-						{
-							toFind_state = 2; //done elaborating
-							toFind_return = 0; //sms read successfully
-						}
-					}
-				}
-			}
-
-			//update interchar timing
 			t = millis();
 		}
 	}
 
-	//return
-	return toFind_return;
+	//if not found
+	return false;
 }
+
+
+bool LWSim800::_fetchField(char *dest, int dest_size, char fieldBegin, char fieldEnd, uint16_t interchar_timeout)
+{
+	bool fetchField_started = false;
+	int fetchField_i = 0;
+	unsigned long t = millis();
+	char c;
+
+	if(dest_size > 0)
+		dest[0] = '\0';
+
+	//loop until timeout (or anticipated return)
+	while(millis() - t < interchar_timeout)
+	{
+		//as soon as there's data available
+		if(gsmSerial.available())
+		{
+			c = (char) gsmSerial.read();
+
+			if(fetchField_started == false) //field beginning not found yet
+			{ 
+				if(c == fieldBegin)
+				{
+				  fetchField_started = true;
+				}
+			}
+			else //reading field
+			{
+				if(c == fieldEnd) //found field end
+				{
+				  return true; //field ended
+				}
+				else
+				{   
+				  if(fetchField_i < dest_size - 1) //avoid buffer overflow
+				  {
+				    dest[fetchField_i++] = c;
+				    dest[fetchField_i] = '\0';
+				  }
+				}
+			}
+
+			t = millis();
+		}
+	}
+
+	return false; //field not ended
+}
+
+long LWSim800::_stringToUTC(char* text)
+{
+	if(strlen(text) < 20)
+		return -1;
+
+	struct tm t;
+	char tmp [3] = "00";
+
+	//year
+	tmp[0] = text[0];
+	tmp[1] = text[1];
+	if(text[2] == '/') //integrity check
+		t.tm_year = (2000 + atoi(tmp)) - 1870;
+	else
+		return -1;
+
+	//month
+	tmp[0] = text[3];
+	tmp[1] = text[4];
+	if(text[5] == '/') //integrity check
+		t.tm_mon = atoi(tmp) - 1;
+	else
+		return -1;
+
+	//day
+	tmp[0] = text[6];
+	tmp[1] = text[7];
+	if(text[8] == ',') //integrity check
+		t.tm_mday = atoi(tmp);
+	else
+		return -1;
+
+	//hour
+	tmp[0] = text[9];
+	tmp[1] = text[10];
+	if(text[11] == ':') //integrity check
+		t.tm_hour = atoi(tmp);
+	else
+		return -1;
+
+	//min
+	tmp[0] = text[12];
+	tmp[1] = text[13];
+	if(text[14] == ':') //integrity check
+		t.tm_min = atoi(tmp);
+	else
+		return -1;
+
+	//sec
+	tmp[0] = text[15];
+	tmp[1] = text[16];
+	if(text[17] == '+' || text[17] == '-') //integrity check
+		t.tm_sec = atoi(tmp);
+	else
+		return -1;
+
+	//set dst
+	t.tm_isdst = -1;
+
+	return (long) mktime(&t); 
+}
+
 
 bool LWSim800::_sendSMS(const __FlashStringHelper *destp, char *destc, const __FlashStringHelper *textp, char* textc)
 {
-	/* First send out AT+CMGF=1 - activate text mode
+	/*
 	* The AT+CMGS=\number\
 	AT+CMGS=<number><CR><message><CTRL-Z>	+CMGS:<mr>
 	OK
@@ -274,7 +372,7 @@ void LWSim800::Init(long baud_rate) {
 			// CSCS
 			gsmSerial.println(F("AT+CSCS=\"GSM\""));
 			if (_checkResponse(500, 50, CHECK_OK) != 0) 
-				_serialPrint(F("[Warning] CSCSfailed"));
+				_serialPrint(F("[Warning] CSCS failed"));
 
 			// Switch off echo
 			gsmSerial.println(F("ATE0"));
@@ -320,26 +418,34 @@ void LWSim800::Init(long baud_rate) {
 }
 
 // This forces the reconnection to the network
-bool LWSim800::Reconnect() {
+bool LWSim800::Reset() {
 	//only if sim800l available
 	if(available)
 	{
-		gsmSerial.println(F("AT+CFUN=0")); // set airplane mode
+		gsmSerial.println(F("AT+CFUN=1,1")); // set airplane mode
 		// max time to wait is 5secs
-		if(_checkResponse(5000, 50, CHECK_OK) == 0)	
-		{
-			gsmSerial.println(F("AT+CFUN=1")); // set normal mode
-			// max time to wait is 15secs, long interchar
-			if(_checkResponse(15000, 5000, CHECK_CALL_READY) == 0)	
-				return true;
-			else 
-				return false;
-		}
-		else
+		if(_checkResponse(5000, 5000, CHECK_OK) == 0)	
+			return true;
+		else 
 			return false;
 	}
 	else
 		return false; //sim800l not available
+}
+
+// This gets date time from the RTC
+long LWSim800::GetDateTime() {
+	// this function asks the RTC for the UTC timestamp
+
+	//only if sim800l available
+	if(available)
+	{
+		gsmSerial.println(F("AT+CCLK?"));
+		return _checkResponse(5000, 50, CHECK_CCLK);
+	}
+	else
+		return -1; //sim800l not available
+	
 }
 
 // This gets the index of the first sms in memory
@@ -443,7 +549,6 @@ bool LWSim800::DelSMSByIndex(uint8_t index) {
 	else
 		return false; //sim800l not available
 }
-
 
 // This deletes all sms in memory  
 bool LWSim800::DelAllSMS() {

@@ -33,6 +33,9 @@ void setup()
 
   //enable connection with the sim800l
   sim800.Init(4800); 
+
+  //check time
+  Serial.println(sim800.GetDateTime());
 }
 
 

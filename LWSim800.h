@@ -22,6 +22,9 @@
 
 #ifndef LWSim800_h
 #define LWSim800_h
+
+#include <time.h>
+
  
 //RX and TX pins
 #define RX_PIN 2	
@@ -34,6 +37,7 @@
 #define CHECK_CMGL "+CMGL:"
 #define CHECK_CMGR "+CMGR:"
 #define CHECK_CPMS "+CPMS:"
+#define CHECK_CCLK "+CCLK:"
 #define CHECK_CALL_READY "Call Ready"
 
 //This enables debugging mode, to disable it - set value to 0
@@ -47,7 +51,11 @@ class LWSim800
 	bool available = false;
 	   
 	// private functions
-	int _checkResponse(uint16_t comm_timeout, uint16_t interchar_timeout, const char* toFind);
+	long _checkResponse(uint16_t comm_timeout, uint16_t interchar_timeout, const char* toFind);
+	bool _findLabel(const char *magic, uint16_t interchar_timeout);
+	bool _fetchField(char *dest, int dest_size, char fieldBegin, char fieldEnd, uint16_t interchar_timeout);
+	long _stringToUTC(char *text);
+
 	bool _sendSMS(const __FlashStringHelper *destp, char *destc, const __FlashStringHelper *textp, char* textc);
 	void _serialPrint(const __FlashStringHelper *text);
 	
@@ -63,14 +71,14 @@ class LWSim800
 	struct {
   		char message [MESSAGE_MAX_LENGTH];
   		char sender[SENDER_MAX_LENGTH];
+  		long dateTime;
 	} sms;
-
-	#define SMS_INDEX_MAX_LENGTH 4 //max 3 digit + 1 terminator
-	char smsIndex [4]; 
 
 	// public functions
 	void Init(long baud_rate);
-	bool Reconnect();
+	bool Reset();
+
+	long GetDateTime();
 
 	int GetNewSMSIndex(); //gets the index of a new sms
 	bool ReadNewSMS(); //reads a new sms from memory
