@@ -31,14 +31,13 @@
 #define TX_PIN 3
 
 //Common "toFind" magics
-#define CHECK_FLUSH "FLUSH"
-#define CHECK_OK "OK"
-#define CHECK_READY_TO_RECEIVE ">"
-#define CHECK_CMGL "+CMGL:"
-#define CHECK_CMGR "+CMGR:"
-#define CHECK_CPMS "+CPMS:"
-#define CHECK_CCLK "+CCLK:"
-#define CHECK_CALL_READY "Call Ready"
+#define LABEL_OK "OK"
+#define LABEL_READY_TO_RECEIVE ">"
+#define LABEL_CMGL "+CMGL:"
+#define LABEL_CMGR "+CMGR:"
+#define LABEL_CPMS "+CPMS:"
+#define LABEL_CCLK "+CCLK:"
+#define LABEL_CALL_READY "Call Ready"
 
 //This enables debugging mode, to disable it - set value to 0
 #define DEBUG 0
@@ -51,9 +50,9 @@ class LWSim800
 	bool available = false;
 	   
 	// private functions
-	long _checkResponse(uint16_t comm_timeout, uint16_t interchar_timeout, const char* toFind);
-	bool _findLabel(const char *magic, uint16_t interchar_timeout);
+	bool _findLabel(uint16_t comm_timeout, uint16_t interchar_timeout, const char* label);
 	bool _fetchField(char *dest, int dest_size, char fieldBegin, char fieldEnd, uint16_t interchar_timeout);
+	void _flushSerial(uint16_t comm_timeout, uint16_t interchar_timeout);
 	long _stringToUTC(char *text);
 
 	bool _sendSMS(const __FlashStringHelper *destp, char *destc, const __FlashStringHelper *textp, char* textc);

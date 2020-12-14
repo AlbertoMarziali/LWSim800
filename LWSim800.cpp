@@ -35,119 +35,24 @@ LWSim800::LWSim800() {}
 // PRIVATE METHODS
 //
 
-// this reads data from sim and reports if found (0 or 1)
-// Also:
-// - if toFind is "CMGL", if found, returns the first sms index
-// - if toFind is "CMGR:", if found, read the sms into sms struct
-// - if toFind is something else, if found, just report it
-
-// Returns:
-// -1 not found
-// 0 found and executed operation
-// 1..N found and operation res (in CMGL, N = new sms index)
-long LWSim800::_checkResponse(uint16_t comm_timeout, uint16_t interchar_timeout, const char* magic)
+/*	This searches for the label and reports if found (true) or not found (false)
+*	ATTENTION: 
+*	This acts like a flush ONLY in case of failure. 
+*	If the label is found, you have to flush manually afterward.
+*/
+bool LWSim800::_findLabel(uint16_t comm_timeout, uint16_t interchar_timeout, const char* label)
 {
 	// this function just reads the raw data
 	unsigned long t = millis();
-	char c;
-	long checkResponse_ret;
 
 	//wait for the communication to start
 	while(!gsmSerial.available() && millis() - t < comm_timeout);
 
 	//return false if timed out
 	if(!gsmSerial.available())
-		return -1;
+		return false;
 
-	//check for magic
-	if(_findLabel(magic, interchar_timeout))
-	{
-		//magic found
-		//elaborate and return
-		if(!strcmp(magic, CHECK_CMGL))
-		{
-			// CMGL MODE
-			// +CMGL: 1,"REC_.....
-
-			//fetch the sms index field
-			char tmp [4]; //3 digit + \0
-			if(_fetchField(tmp, 4, ' ', ',', interchar_timeout))
-				checkResponse_ret = atoi(tmp);
-			else
-				checkResponse_ret = -1; //field not found
-
-		}
-		else if(!strcmp(magic, CHECK_CMGR))
-		{
-			// CMGR MODE
-			// +CMGR: "REC_READ","+001234567890","","20/10/31,19:18:38+04"<LF>text\r
-
-			//fetch sms status field
-			if(_fetchField(NULL, 0, '"', '"', interchar_timeout))
-			{
-				//fetch sms sender field
-				if(_fetchField(sms.sender, SENDER_MAX_LENGTH, '"', '"', interchar_timeout))
-				{
-					//fetch sms sender name field
-					if(_fetchField(NULL, 0, '"', '"', interchar_timeout))
-					{
-						//fetch the sms date time
-						char tmp [21];
-						if(_fetchField(tmp, 21, '"', '"', interchar_timeout))
-						{
-							sms.dateTime = _stringToUTC(tmp);
-
-							//fetch the sms text field
-							if(_fetchField(sms.message, MESSAGE_MAX_LENGTH, 0x0a, '\r', interchar_timeout))
-								checkResponse_ret = 0; //sms ready
-							else
-								checkResponse_ret = -1; //field not found
-						}
-						else 
-							checkResponse_ret = -1; //field not found
-					}
-					else
-						checkResponse_ret = -1; //field not found
-				}
-				else
-					checkResponse_ret = -1; //field not found
-			}
-			else
-				checkResponse_ret = -1; //field not found
-
-		}
-		else if(!strcmp(magic, CHECK_CCLK))
-		{
-			// CCLK MODE
-			// +CCLK: "04/01/01,00:00:41+00"
-
-			char tmp [21];
-			if(_fetchField(tmp, 21, '"', '"', interchar_timeout))
-				checkResponse_ret = _stringToUTC(tmp); //field found, date read
-			else
-				checkResponse_ret = -1; //field not found
-
-		}
-		else 
-		{
-			//SIMPLE MODE
-			//magic found, no elaborating needed
-			checkResponse_ret = 0;
-		}
-		
-		//flush until the buffer is empty
-		_findLabel(CHECK_FLUSH, interchar_timeout);
-
-		//return
-		return checkResponse_ret; 
-	}
-	else 
-		return -1; //magic not found
-}
-
-bool LWSim800::_findLabel(const char *label, uint16_t interchar_timeout)
-{
-	unsigned long t = millis();
+	//check for label
 	int label_size = strlen(label);
 	int label_i = 0;
 	char c;
@@ -179,6 +84,13 @@ bool LWSim800::_findLabel(const char *label, uint16_t interchar_timeout)
 }
 
 
+/* 	This fetches a field delimited with fieldBegin and fieldEnd.
+*	For example: "ciao"
+*	fieldBegin=", fieldEnd="
+*	ATTENTION:
+*	This acts like a flush ONLY in case of failure.
+*	If the field gets successfully read, you have to flush manually afterwards.
+*/
 bool LWSim800::_fetchField(char *dest, int dest_size, char fieldBegin, char fieldEnd, uint16_t interchar_timeout)
 {
 	bool fetchField_started = false;
@@ -224,8 +136,38 @@ bool LWSim800::_fetchField(char *dest, int dest_size, char fieldBegin, char fiel
 		}
 	}
 
-	return false; //field not ended
+	return false; //field not ended, if reached here, it already flushed
 }
+
+
+/*	This simply flushes the rx buffer.
+*	Use this after successful _findLabel and _fetchField calls
+*/
+void LWSim800::_flushSerial(uint16_t comm_timeout, uint16_t interchar_timeout)
+{
+	// this function just reads the raw data
+	unsigned long t = millis();
+
+	//wait for the communication to start
+	while(!gsmSerial.available() && millis() - t < comm_timeout);
+
+	//return false if timed out
+	if(!gsmSerial.available())
+		return;
+
+	//loop until ther buffer is empy
+	while(millis() - t < interchar_timeout)
+	{
+		//as soon as there's data available
+		if(gsmSerial.available())
+		{
+			char c = (char) gsmSerial.read();
+			t = millis();
+		}
+	}
+}
+
+
 
 long LWSim800::_stringToUTC(char* text)
 {
@@ -309,20 +251,28 @@ bool LWSim800::_sendSMS(const __FlashStringHelper *destp, char *destc, const __F
 			gsmSerial.print(destc);
 
 		gsmSerial.println(F("\""));
-		if (_checkResponse(15000, 50, CHECK_READY_TO_RECEIVE) == 0) 
+		if (_findLabel(15000, 50, LABEL_READY_TO_RECEIVE)) 
 		{	
+			//flush
+			_flushSerial(1000, 50); 
+
 			//select progmemchar or char text
 			if(textp != NULL) 
 				gsmSerial.println(textp); 
 			else 
 				gsmSerial.println(textc);
 
-			_checkResponse(2000, 50, CHECK_FLUSH); //flush
-
+			//send message end code
 			gsmSerial.print((char)26);
+
 			// if successfully sent we should get CMGS:xxx ending with OK
-			if(_checkResponse(20000, 50, CHECK_OK) == 0)
+			if(_findLabel(20000, 50, LABEL_OK))
+			{
+				//flush
+				_flushSerial(1000, 50); 
+
 				return true;
+			}
 			else
 				return false;
 		}
@@ -345,10 +295,12 @@ void LWSim800::_serialPrint(const __FlashStringHelper *text)
 
 void LWSim800::Init(long baud_rate) {
 	int retries = 0;
+	available = false;
+	
 	// begin software serial
 	gsmSerial.begin(baud_rate);	 	 
 	// this will flush the serial
-	_checkResponse(1000, 1000, CHECK_FLUSH); 
+	_flushSerial(1000, 1000); 
 
 	// check if the sim800L is actually attached
 	// sends a test AT command, if attached we should get an OK response
@@ -359,45 +311,59 @@ void LWSim800::Init(long baud_rate) {
 		
 		//check connection. if ok, proceed in setup
 		gsmSerial.println(F("AT"));
-		if (_checkResponse(2000, 50, CHECK_OK) == 0) 
+		if (_findLabel(2000, 50, LABEL_OK)) 
 		{
 			//Flush again
-			_checkResponse(5000, 5000, CHECK_FLUSH); 
+			_flushSerial(5000, 5000); 
 
 			// Reset to the factory settings
 			gsmSerial.println(F("AT&F"));
-			if (_checkResponse(1000, 50, CHECK_OK) != 0) 
+			if (!_findLabel(1000, 50, LABEL_OK)) 
 				_serialPrint(F("[Warning] Factory reset failed"));
+			else
+				_flushSerial(1000, 50); //flush
 
 			// CSCS
 			gsmSerial.println(F("AT+CSCS=\"GSM\""));
-			if (_checkResponse(500, 50, CHECK_OK) != 0) 
+			if (!_findLabel(500, 50, LABEL_OK)) 
 				_serialPrint(F("[Warning] CSCS failed"));
+			else
+				_flushSerial(1000, 50);  //flush
 
 			// Switch off echo
 			gsmSerial.println(F("ATE0"));
-			if (_checkResponse(500, 50, CHECK_OK) != 0) 
+			if (!_findLabel(500, 50, LABEL_OK)) 
 				_serialPrint(F("[Warning] Turn echo off failed"));
+			else
+				_flushSerial(1000, 50);  //flush
 
 			// Mobile Equipment Error Code
 			gsmSerial.println(F("AT+CMEE=0"));
-			if (_checkResponse(500, 50, CHECK_OK) != 0) 
+			if (!_findLabel(500, 50, LABEL_OK)) 
 				_serialPrint(F("[Warning] Error code configuration failed"));
+			else
+				_flushSerial(1000, 50);  //flush
 
 			// Set the SMS mode to text 
 			gsmSerial.println(F("AT+CMGF=1"));
-			if (_checkResponse(500, 50, CHECK_OK) != 0) 
+			if (!_findLabel(500, 50, LABEL_OK)) 
 				_serialPrint(F("[Warning] SMS text mode setup failed"));
+			else
+				_flushSerial(1000, 50);  //flush
 			 
 			// Disable messages about new SMS from GSM module
 			gsmSerial.println(F("AT+CNMI=2,0"));
-			if (_checkResponse(1000, 50, CHECK_OK) != 0) 
+			if (!_findLabel(1000, 50, LABEL_OK)) 
 				_serialPrint(F("[Warning] SMS notification disable failed"));
+			else
+				_flushSerial(1000, 50);  //flush
 			
 			// Init sms memory
 			gsmSerial.println(F("AT+CPMS=\"SM\",\"SM\",\"SM\""));
-			if (_checkResponse(1000, 50, CHECK_CPMS) != 0) 
+			if (!_findLabel(1000, 50, LABEL_CPMS)) 
 				_serialPrint(F("[Warning] SMS Memory init failed"));
+			else
+				_flushSerial(1000, 50);  //flush
 	
 			//enable all functions
 			available = true; 	
@@ -424,8 +390,13 @@ bool LWSim800::Reset() {
 	{
 		gsmSerial.println(F("AT+CFUN=1,1")); // set airplane mode
 		// max time to wait is 5secs
-		if(_checkResponse(5000, 5000, CHECK_OK) == 0)	
+		if(_findLabel(5000, 5000, LABEL_OK))	
+		{
+			//flush
+			_flushSerial(1000, 50); 
+			
 			return true;
+		}
 		else 
 			return false;
 	}
@@ -441,7 +412,19 @@ long LWSim800::GetDateTime() {
 	if(available)
 	{
 		gsmSerial.println(F("AT+CCLK?"));
-		return _checkResponse(5000, 50, CHECK_CCLK);
+		if(_findLabel(5000, 50, LABEL_CCLK))
+		{
+			// +CCLK: "04/01/01,00:00:41+00"
+			char tmp [21];
+
+			if(!_fetchField(tmp, 21, '"', '"', 50))
+				return -1; //field not found
+
+			//flush
+			_flushSerial(1000, 50); 
+
+			return _stringToUTC(tmp); //field found, date read
+		}
 	}
 	else
 		return -1; //sim800l not available
@@ -457,12 +440,79 @@ int LWSim800::GetNewSMSIndex() {
 	if(available)
 	{
 		gsmSerial.println(F("AT+CMGL=\"ALL\",0"));
-		return _checkResponse(10000, 50, CHECK_CMGL);
+		if(_findLabel(10000, 50, LABEL_CMGL))
+		{
+			// +CMGL: 1,"REC_.....
+
+			//fetch the sms index field
+			char tmp [4]; //3 digit + \0
+
+			if(!_fetchField(tmp, 4, ' ', ',', 50))
+				return -1; //field not found
+
+			//flush
+			_flushSerial(1000, 50); 
+
+			return atoi(tmp);
+		}
+		else
+			return -1; //label not found
 	}
 	else
 		return -1; //sim800l not available
 	
 }
+
+
+// This reads the sms specified by the index
+bool LWSim800::ReadSMSByIndex(uint8_t index) {
+	//only if sim800l available
+	if(available)
+	{
+		//set sms text mode
+		gsmSerial.print(F("AT+CMGR="));
+		gsmSerial.println(index);			
+		//reads message text and number of sender, return if error
+		if(_findLabel(10000, 50, LABEL_CMGR))
+		{
+			// +CMGR: "REC_READ","+001234567890","","20/10/31,19:18:38+04"<LF>text\r
+
+			//fetch sms status field
+			if(!_fetchField(NULL, 0, '"', '"', 50))
+				return false;
+
+			//fetch sms sender field
+			if(!_fetchField(sms.sender, SENDER_MAX_LENGTH, '"', '"', 50))
+				return false;
+
+			//fetch sms sender name field
+			if(!_fetchField(NULL, 0, '"', '"', 50))
+				return false;
+			
+			//fetch the sms date time
+			char tmp [21];
+			if(!_fetchField(tmp, 21, '"', '"', 50))
+				return false;
+
+			sms.dateTime = _stringToUTC(tmp);
+
+			//fetch the sms text field
+			if(!_fetchField(sms.message, MESSAGE_MAX_LENGTH, 0x0a, '\r', 50))
+				return false;
+
+			//flush
+			_flushSerial(1000, 50); 
+
+			return true;
+
+		}
+		else
+			return false; //label not found
+	}
+	else
+		return false; //sim800l not available
+}
+
  
 // This reads the first sms found in memory
 bool LWSim800::ReadNewSMS() {
@@ -479,24 +529,6 @@ bool LWSim800::ReadNewSMS() {
 		}
 		else	//new sms not found
 			return false;
-	}
-	else
-		return false; //sim800l not available
-}
-
-// This reads the sms specified by the index
-bool LWSim800::ReadSMSByIndex(uint8_t index) {
-	//only if sim800l available
-	if(available)
-	{
-		//set sms text mode
-		gsmSerial.print(F("AT+CMGR="));
-		gsmSerial.println(index);			
-		//reads message text and number of sender, return if error
-		if(_checkResponse(10000, 50, CHECK_CMGR) == 0)
-			return true;
-		else
-			return false; //no answer
 	}
 	else
 		return false; //sim800l not available
@@ -541,8 +573,13 @@ bool LWSim800::DelSMSByIndex(uint8_t index) {
 		gsmSerial.print(F("AT+CMGD="));
 		gsmSerial.println(index);
 		// max time to wait is 25secs
-		if(_checkResponse(25000, 50, CHECK_OK) == 0)
+		if(_findLabel(25000, 50, LABEL_OK))
+		{
+			//flush
+			_flushSerial(1000, 50); 
+
 			return true;
+		}
 		else
 			return false;
 	}
@@ -557,8 +594,13 @@ bool LWSim800::DelAllSMS() {
 	{
 		gsmSerial.println(F("AT+CMGDA=\"DEL ALL\"")); // set sms to text mode
 		// max time to wait is 25secs
-		if(_checkResponse(25000, 50, CHECK_OK) == 0)
+		if(_findLabel(25000, 50, LABEL_OK))
+		{
+			//flush
+			_flushSerial(1000, 50); 
+			
 			return true;
+		}
 		else
 			return false;
 	}
