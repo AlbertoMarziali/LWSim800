@@ -64,6 +64,8 @@ bool LWSim800::_findLabel(uint16_t comm_timeout, uint16_t interchar_timeout, con
 		if(gsmSerial.available())
 		{
 			c = (char) gsmSerial.read();
+			if(DEBUG)
+				Serial.print(c);
 
 			if(label[label_i] == c)
 			{
@@ -108,6 +110,8 @@ bool LWSim800::_fetchField(char *dest, int dest_size, char fieldBegin, char fiel
 		if(gsmSerial.available())
 		{
 			c = (char) gsmSerial.read();
+			if(DEBUG)
+				Serial.print(c);
 
 			if(fetchField_started == false) //field beginning not found yet
 			{ 
@@ -163,6 +167,9 @@ void LWSim800::_flushSerial(uint16_t comm_timeout, uint16_t interchar_timeout)
 		{
 			char c = (char) gsmSerial.read();
 			t = millis();
+
+			if(DEBUG)
+				Serial.print(c);
 		}
 	}
 }
