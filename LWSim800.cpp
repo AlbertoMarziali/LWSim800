@@ -58,6 +58,7 @@ bool LWSim800::_findLabel(uint16_t comm_timeout, uint16_t interchar_timeout, con
 	char c;
 
 	//loop until timeout (or anticipated return)
+	t = millis();
 	while(millis() - t < interchar_timeout)
 	{
 		//as soon as there's data available
@@ -104,6 +105,7 @@ bool LWSim800::_fetchField(char *dest, int dest_size, char fieldBegin, char fiel
 		dest[0] = '\0';
 
 	//loop until timeout (or anticipated return)
+	t = millis();
 	while(millis() - t < interchar_timeout)
 	{
 		//as soon as there's data available
@@ -160,6 +162,7 @@ void LWSim800::_flushSerial(uint16_t comm_timeout, uint16_t interchar_timeout)
 		return;
 
 	//loop until ther buffer is empy
+	t = millis();
 	while(millis() - t < interchar_timeout)
 	{
 		//as soon as there's data available
