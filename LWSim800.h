@@ -37,10 +37,11 @@
 #define LABEL_CMGR "+CMGR:"
 #define LABEL_CPMS "+CPMS:"
 #define LABEL_CCLK "+CCLK:"
+#define LABEL_CSQ "+CSQ:"
 #define LABEL_CALL_READY "Call Ready"
 
 //This enables debugging mode, to disable it - set value to 0
-#define DEBUG 0
+#define DEBUG 1
 
 //LW Sim800 Class 
 class LWSim800
@@ -78,6 +79,7 @@ class LWSim800
 	bool Reset();
 
 	long GetDateTime();
+	int GetSignalValue();
 
 	int GetNewSMSIndex(); //gets the index of a new sms
 	bool ReadNewSMS(); //reads a new sms from memory

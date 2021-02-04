@@ -261,7 +261,7 @@ bool LWSim800::_sendSMS(const __FlashStringHelper *destp, char *destc, const __F
 			gsmSerial.print(destc);
 
 		gsmSerial.println(F("\""));
-		if (_findLabel(15000, 50, LABEL_READY_TO_RECEIVE)) 
+		if (_findLabel(1000, 500, LABEL_READY_TO_RECEIVE)) 
 		{	
 			//flush
 			_flushSerial(1000, 50); 
@@ -276,7 +276,7 @@ bool LWSim800::_sendSMS(const __FlashStringHelper *destp, char *destc, const __F
 			gsmSerial.print((char)26);
 
 			// if successfully sent we should get CMGS:xxx ending with OK
-			if(_findLabel(20000, 50, LABEL_OK))
+			if(_findLabel(7000, 5000, LABEL_OK))
 			{
 				//flush
 				_flushSerial(1000, 50); 
@@ -435,6 +435,38 @@ long LWSim800::GetDateTime() {
 
 			return _stringToUTC(tmp); //field found, date read
 		}
+	}
+	else
+		return -1; //sim800l not available
+	
+}
+
+// This gets the index of the first sms in memory
+int LWSim800::GetSignalValue() {
+	// this function checks the message for the first message index.
+	// returns 0 if nothing is found, possible for an empty simcard
+
+	//only if sim800l available
+	if(available)
+	{
+		gsmSerial.println(F("AT+CSQ"));
+		if(_findLabel(10000, 50, LABEL_CSQ))
+		{
+			// +CSQ: 4,0
+
+			//fetch the sms index field
+			char tmp [3]; //2 digit + \0
+
+			if(!_fetchField(tmp, 4, ' ', ',', 50))
+				return -1; //field not found
+
+			//flush
+			_flushSerial(1000, 50); 
+
+			return atoi(tmp);
+		}
+		else
+			return -1; //label not found
 	}
 	else
 		return -1; //sim800l not available

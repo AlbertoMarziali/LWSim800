@@ -34,3 +34,5 @@ DelAllSMS	KEYWORD2
 #######################################
 Init	KEYWORD2 
 Reset	KEYWORD2 
+GetDateTime	KEYWORD2
+GetSignalValue	KEYWORD2
